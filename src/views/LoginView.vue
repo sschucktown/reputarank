@@ -15,15 +15,15 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { SupabaseClient } from '@supabase/supabase-js'
-import MainLayout from '@/views/MainLayout.vue'
+import { supabase } from '@/lib/supabase'
+import MainLayout from '../layouts/MainLayout.vue'
 
 const router = useRouter()
 const email = ref('')
 const password = ref('')
 
 const handleLogin = async () => {
-  const { error } = await SupabaseClient.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email: email.value,
     password: password.value
   })

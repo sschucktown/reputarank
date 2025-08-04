@@ -1,11 +1,11 @@
-import { fileURLToPath, URL } from 'node:url'
-
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import path from 'path'
 
-// https://vite.dev/config/
+// You don't need to import tailwindcss here.
+// It will be picked up by PostCSS from `postcss.config.js`
+
 export default defineConfig({
   plugins: [
     vue(),
@@ -13,8 +13,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      //'@': fileURLToPath(new URL('./src', import.meta.url)),
-      '@': path.resolve(__dirname, './src')
+      '@': path.resolve(__dirname, './src'),
     },
   },
 })
