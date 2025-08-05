@@ -1,64 +1,49 @@
-<!-- src/components/NewRequestForm.vue -->
-<template>
-  <form @submit.prevent="submitRequest" class="space-y-4 p-4 border border-gray-300 rounded">
-    <h2 class="text-lg font-bold">Submit a New Request</h2>
-
-    <input
-      v-model="form.name"
-      type="text"
-      placeholder="Your Name"
-      class="w-full border border-gray-300 rounded px-3 py-2"
-      required
-    />
-
-    <input
-      v-model="form.email"
-      type="email"
-      placeholder="Your Email"
-      class="w-full border border-gray-300 rounded px-3 py-2"
-      required
-    />
-
-    <textarea
-      v-model="form.message"
-      placeholder="Your Message"
-      class="w-full border border-gray-300 rounded px-3 py-2"
-      required
-    ></textarea>
-
-    <button
-      type="submit"
-      class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-    >
-      Submit
-    </button>
-  </form>
-</template>
-
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive, onMounted, ref } from 'vue'
 import { useRequestsStore } from '@/stores/requests'
-import { useToast } from 'vue-toastification'
+import { useClientsStore } from '@/stores/clients'
 
-const store = useRequestsStore()
-const toast = useToast()
+const requestStore = useRequestsStore()
+const clientStore = useClientsStore()
 
 const form = reactive({
   name: '',
   email: '',
   message: '',
+  client_id: '',
+})
+
+onMounted(() => {
+  clientStore.fetchClients()
 })
 
 async function submitRequest() {
-  try {
-    await store.createRequest(form.name, form.message)
-    toast.success('Request submitted!')
-    form.name = ''
-    form.email = ''
-    form.message = ''
-  } catch (error) {
-    toast.error('Something went wrong. Please try again.')
-    console.error(error)
-  }
+  await requestStore.createRequest(form.name, form.email, form.message, form.client_id)
+  form.name = ''
+  form.email = ''
+  form.message = ''
+  form.client_id = ''
 }
 </script>
+
+<template>
+  <!-- other fields... -->
+
+  <div>
+    <label class="block text-sm font-medium text-gray-700">Select Client</label>
+    <select
+        v-model="form.client_id"
+        class="w-full mt-1 px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+        required
+    >
+      <option value="" disabled>Select a client</option>
+      <option
+          v-for="client in clientStore.clients"
+          :key="client.id"
+          :value="client.id"
+      >
+        {{ client.name }} ({{ client.email }})
+      </option>
+    </select>
+  </div>
+</template>

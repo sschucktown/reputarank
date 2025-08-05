@@ -14,7 +14,7 @@
         <label class="block text-sm font-medium mb-1">Status:</label>
         <select v-model="selectedStatus" class="w-full border border-gray-300 rounded px-3 py-2">
           <option value="pending">Pending</option>
-          <option value="in progress">In Progress</option>
+          <option value="in_review">In Progress</option>
           <option value="completed">Completed</option>
         </select>
         <button
