@@ -60,6 +60,30 @@ const form = reactive({
 
 async function submitClient() {
   await store.addClient(form.name, form.email)
+
+  try {
+    const res = await fetch('https://udkxcqqwppncfghmodkb.functions.supabase.co/send-request-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: form.name,
+        email: form.email,
+        message: `New client submitted via app: ${form.name} (${form.email})`
+      })
+    })
+
+    if (!res.ok) {
+      const errorText = await res.text()
+      console.error('Email failed:', errorText)
+    } else {
+      console.log('Email sent!')
+    }
+  } catch (err) {
+    console.error('Fetch error:', err)
+  }
+
   form.name = ''
   form.email = ''
 }

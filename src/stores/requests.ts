@@ -1,96 +1,69 @@
-// src/stores/requests.ts
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
-import { supabase } from '@/lib/supabase'
-import { useToast } from 'vue-toastification'
-import type { UserRequest } from '@/types'
+// supabase/functions/send-request-email/index.ts
 
-const toast = useToast()
+import { serve } from 'https://deno.land/std@0.192.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.42.3'
 
-export const useRequestsStore = defineStore('requests', () => {
-  const requests = ref<UserRequest[]>([])
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+const TO_EMAIL = Deno.env.get('TO_EMAIL') || 'your@email.com'
 
-  async function fetchRequests() {
-    const { data, error } = await supabase
-        .from('requests')
-        .select('id, name, email, message, status, created_at, clients (id, name, email)')
-        .order('created_at', { ascending: false })
+serve(async (req) => {
+  // Debug: show the Authorization header
+  const authHeader = req.headers.get('Authorization')
+  console.log('Auth header:', authHeader)
 
-    if (error) {
-      toast.error('Failed to fetch requests')
-    } else {
-      requests.value = data as any
-    }
+  // Create Supabase client with forwarded auth header
+  const supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
+    global: {
+      headers: {
+        Authorization: authHeader ?? '',
+      },
+    },
+  })
+
+  // Check user auth (remove if not needed)
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    console.error('Auth error:', authError)
+    return new Response('Unauthorized', { status: 401 })
   }
 
-  async function createRequest(name: string, email: string, message: string) {
-    const { error: insertError } = await supabase
-        .from('requests')
-        .insert({ name, email, message, status: 'pending' })
+  // Read JSON from the request
+  const { name, email, message } = await req.json()
+  console.log('Received request:', { name, email, message })
 
-    if (insertError) {
-      toast.error('Failed to submit request')
-      return
-    }
-
-    // ✅ Call the Edge Function with Authorization
-    try {
-      const response = await fetch('https://udkxcqqwppncfghmodkb.functions.supabase.co/send-request-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVka3hjcXF3cHBuY2ZnaG1vZGtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQwMDkzOTcsImV4cCI6MjA2OTU4NTM5N30.mr6twOgbkKJtjfb3Y9ZpzBs4Y-ESk4R_aH2FBEVlXAE`,
-        },
-        body: JSON.stringify({ name, email, message })
-      })
-
-      if (response.ok) {
-        toast.success('Request submitted and email sent')
-      } else {
-        const errorText = await response.text()
-        console.error('Email function failed:', errorText)
-        toast.warning('Request submitted, but email failed')
-      }
-    } catch (err) {
-      console.error('Network or server error:', err)
-      toast.warning('Request submitted, but email failed due to network/server issue')
-    }
-
-    await fetchRequests()
+  // Validate required fields
+  if (!name || !email || !message) {
+    return new Response('Missing fields', { status: 400 })
   }
 
-  async function updateStatus(id: string, status: UserRequest['status']) {
-    const { error } = await supabase
-        .from('requests')
-        .update({ status })
-        .eq('id', id)
+  // Send email using Resend API
+  const emailRes = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: 'noreply@yourdomain.com',
+      to: TO_EMAIL,
+      subject: `New Request from ${name}`,
+      html: `
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Message:</strong><br/>${message}</p>
+      `,
+    }),
+  })
 
-    if (error) {
-      toast.error('Failed to update status.')
-    } else {
-      toast.success('Status updated.')
-    }
+  if (!emailRes.ok) {
+    const errorText = await emailRes.text()
+    console.error('Email failed:', errorText)
+    return new Response('Email failed', { status: 500 })
   }
 
-  async function updateAdminNote(id: string, admin_note: string) {
-    const { error } = await supabase
-        .from('requests')
-        .update({ admin_note })
-        .eq('id', id)
-
-    if (error) {
-      toast.error('Failed to save note.')
-    } else {
-      toast.success('Note saved.')
-      await fetchRequests()
-    }
-  }
-
-  return {
-    requests,
-    fetchRequests,
-    createRequest,
-    updateStatus,
-    updateAdminNote
-  }
+  console.log('Email sent successfully.')
+  return new Response('Email sent successfully', { status: 200 })
 })
