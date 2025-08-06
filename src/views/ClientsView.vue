@@ -55,11 +55,12 @@ const store = useClientsStore()
 
 const form = reactive({
   name: '',
-  email: ''
+  email: '',
+  message: ''
 })
 
 async function submitClient() {
-  await store.addClient(form.name, form.email)
+  await store.addClient(form.name, form.email, form.message)
 
   try {
     const res = await fetch('https://udkxcqqwppncfghmodkb.functions.supabase.co/send-request-email', {
@@ -86,6 +87,7 @@ async function submitClient() {
 
   form.name = ''
   form.email = ''
+  form.message = ''
 }
 
 onMounted(() => {
